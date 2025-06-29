@@ -1,5 +1,3 @@
----
-
 # 📦 WMS Microservice CI/CD Deployment on AWS
 
 This project demonstrates end-to-end DevOps automation to deploy a sample Warehouse Management System (WMS) microservice to **AWS ECS Fargate**, using:
