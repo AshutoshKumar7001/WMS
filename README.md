@@ -191,9 +191,7 @@ or scale the ECS Service to 0 tasks.
 
 ## 📂 Repository
 
-[GitHub Repository Link](https://github.com/yourusername/wms-sample-deploy)
-
-*(Replace with your actual URL)*
+[GitHub Repository Link]([https://github.com/yourusername/wms-sample-deploy](https://github.com/AshutoshKumar7001/WMS))
 
 ---
 
