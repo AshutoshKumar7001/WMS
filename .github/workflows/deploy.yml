@@ -1,4 +1,4 @@
-name: Build and Deploy WMS Microservice to AWS ECS
+name: Build and Deploy to ECS
 
 on:
   push:
@@ -6,14 +6,15 @@ on:
       - main
 
 env:
-  AWS_REGION: us-east-1
-  ECR_REPO: wms-sample-repo
-  ECS_CLUSTER: wms-ecs-cluster
-  ECS_SERVICE: wms-ecs-service
-  CONTAINER_NAME: wms-container
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+  ECS_CLUSTER: ${{ secrets.ECS_CLUSTER }}
+  ECS_SERVICE: ${{ secrets.ECS_SERVICE }}
+  ECS_TASK_DEFINITION: ${{ secrets.ECS_TASK_DEFINITION }}
 
 jobs:
-  build:
+  deploy:
+    name: Build, Push, and Deploy
     runs-on: ubuntu-latest
 
     steps:
@@ -23,29 +24,65 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Log in to Amazon ECR
-        id: login-ecr
+      - name: Login to Amazon ECR
+        id: ecr-login
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Build Docker image
         run: |
-          docker build -t $ECR_REPO:latest .
+          docker build -t $ECR_REPOSITORY:latest .
 
       - name: Tag Docker image
         run: |
-          docker tag $ECR_REPO:latest ${{ steps.login-ecr.outputs.registry }}/$ECR_REPO:latest
+          IMAGE_URI=$(aws ecr describe-repositories --repository-names $ECR_REPOSITORY --region $AWS_REGION --query 'repositories[0].repositoryUri' --output text)
+          echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
+          docker tag $ECR_REPOSITORY:latest $IMAGE_URI:latest
 
       - name: Push Docker image to ECR
         run: |
-          docker push ${{ steps.login-ecr.outputs.registry }}/$ECR_REPO:latest
+          docker push $IMAGE_URI:latest
 
-      - name: Deploy to ECS
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
-        with:
-          task-definition: ecs-task-def.json
-          service: ${{ env.ECS_SERVICE }}
-          cluster: ${{ env.ECS_CLUSTER }}
-          wait-for-service-stability: true
+      - name: Register new ECS Task Definition revision
+        id: task-def
+        run: |
+          NEW_TASK_DEF=$(aws ecs register-task-definition \
+            --family $ECS_TASK_DEFINITION \
+            --network-mode awsvpc \
+            --requires-compatibilities FARGATE \
+            --cpu 256 \
+            --memory 512 \
+            --execution-role-arn arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/ecsTaskExecutionRole \
+            --container-definitions "[
+              {
+                \"name\": \"wms-container\",
+                \"image\": \"$IMAGE_URI:latest\",
+                \"essential\": true,
+                \"portMappings\": [
+                  {
+                    \"containerPort\": 80,
+                    \"protocol\": \"tcp\"
+                  }
+                ],
+                \"logConfiguration\": {
+                  \"logDriver\": \"awslogs\",
+                  \"options\": {
+                    \"awslogs-group\": \"/ecs/wms-logs\",
+                    \"awslogs-region\": \"$AWS_REGION\",
+                    \"awslogs-stream-prefix\": \"ecs\"
+                  }
+                }
+              }
+            ]")
+          TASK_REVISION=$(echo $NEW_TASK_DEF | jq -r '.taskDefinition.revision')
+          echo "TASK_REVISION=$TASK_REVISION" >> $GITHUB_ENV
+
+      - name: Update ECS Service to use new Task Definition
+        run: |
+          aws ecs update-service \
+            --cluster $ECS_CLUSTER \
+            --service $ECS_SERVICE \
+            --task-definition $ECS_TASK_DEFINITION:$TASK_REVISION
