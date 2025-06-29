@@ -4,7 +4,7 @@
   "containerDefinitions": [
     {
       "name": "wms-container",
-      "image": "iam001devops.dkr.ecr.us-east-1.amazonaws.com/wms-sample-repo:latest",
+      "image": "${{ secrets.AWS_ACCESS_KEY_ID }}.dkr.ecr.us-east-1.amazonaws.com/wms-sample-repo:latest",
       "essential": true,
       "portMappings": [
         {
@@ -25,5 +25,5 @@
   "requiresCompatibilities": ["FARGATE"],
   "cpu": "256",
   "memory": "512",
-  "executionRoleArn": "arn:aws:iam::${secret.AWS_ACCOUNT_ID}:role/ecsTaskExecutionRole"
+  "executionRoleArn": "arn:aws:iam::${{secret.AWS_ACCOUNT_ID}}:role/ecsTaskExecutionRole"
 }
