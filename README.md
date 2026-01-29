@@ -90,7 +90,7 @@ Configure these GitHub **Secrets** in your repository:
 | `AWS_ACCESS_KEY_ID`     | `AKIA***********`         |
 | `AWS_SECRET_ACCESS_KEY` | `***********************` |
 | `AWS_REGION`            | `us-east-1`               |
-| `AWS_ACCOUNT_ID`        | `123456789012`            |
+| `AWS_ACCOUNT_ID`        | `123456789099`            |
 | `ECR_REPOSITORY`        | `wms-sample-repo`         |
 | `ECS_CLUSTER`           | `wms-ecs-cluster`         |
 | `ECS_SERVICE`           | `wms-ecs-service`         |
